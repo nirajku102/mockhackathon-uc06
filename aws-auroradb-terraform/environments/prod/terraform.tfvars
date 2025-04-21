@@ -1,0 +1,9 @@
+database_name = "prod_db"
+instance_type = "db.t3.medium"
+engine = "aurora-mysql"
+engine_version = "5.7"
+username = "admin"
+password = "your_secure_password"
+secret_name = "prod_db_credentials"
+vpc_security_group_ids = ["sg-066b6855870bbf19e"]
+subnet_ids = ["subnet-0604294c2a040bacd", "subnet-014624c5c7302c50e"]

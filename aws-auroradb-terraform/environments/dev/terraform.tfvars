@@ -1,0 +1,6 @@
+db_instance_class = "db.t3.medium"
+db_name = "dev_db"
+db_username = "dev_user"
+db_password = "dev_password"
+secret_name = "dev_db_credentials"
+region = "us-west-2"
