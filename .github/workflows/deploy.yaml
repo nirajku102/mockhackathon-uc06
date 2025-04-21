@@ -1,0 +1,130 @@
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prevent CI Loop
+        run: |
+          if [[ "$(git log -1 --pretty=%an)" == "GitHub Actions" ]]; then
+            echo "Commit is from GitHub Actions. Exiting to prevent loop."
+            exit 0
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 1: Run Terraform Format
+      # - name: Run Terraform Format
+      #   run: |
+      #     cd terraform
+      #     terraform fmt -check -recursive
+
+      - name: terraform-fmt
+        uses: dflook/terraform-fmt@v1.29.1
+ 
+      - name: terraform-validate
+        uses: dflook/terraform-validate@v1.29.1
+       
+      # Step 3: Install Checkov
+      - name: Install Checkov
+        run: |
+          pip install checkov
+
+      # Step 4: Run Checkov
+      - name: Run Checkov
+        run: |
+          cd terraform
+          checkov -d . --soft-fail
+
+      # Step 5: Install TFLint
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      # Step 6: Run TFLint
+      - name: Run TFLint
+        run: |
+          cd terraform
+          tflint
+
+      # Step 7: Initialize Terraform
+      - name: Initialize Terraform
+        run: |
+          cd terraform
+          terraform init
+
+      # Step 8: Generate Terraform Plan
+      - name: Generate Terraform Plan
+        run: |
+          cd terraform
+          terraform plan -var-file=dev.tfvars -out=tfplan
+
+      # Step 9: Save Terraform Plan File
+      - name: Save Terraform Plan File
+        run: |
+          cd terraform
+          terraform show -no-color tfplan > terraform-plan.md
+          rm -rf tfplan
+
+      # Step 10: Read Terraform Plan File
+      - name: Read Terraform Plan File
+        id: read_plan
+        run: |
+          PLAN_CONTENT=$(cat terraform/terraform-plan.md)
+          echo "plan_content<<EOF" >> $GITHUB_ENV
+          echo "$PLAN_CONTENT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      # Step 11: Create Pull Request to main
+      - name: Create Pull Request to main
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: test
+          base: main
+          title: "Terraform Plan Reviews"
+          body: |
+            ## Terraform Plan
+            THE following changes are proposed by this Terraform plan:
+            ```diff
+            ${{ env.plan_content }}
+            ```
+
+      # Step 12: Run Terraform Apply
+      - name: Run Terraform Apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve \
+            -var-file=dev.tfvars
+
+          # terraform destroy -auto-approve \
+          #   -var-file=dev.tfvars \
+          #   -var="image_uri=$ECR_REPO_APP:$IMAGE_TAG"
