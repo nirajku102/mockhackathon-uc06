@@ -9,7 +9,7 @@ variable "db_password" {
   sensitive = true
 }
 
-variable "db_username" {
-  description = "database user name"
-  type = string
-}
+#variable "db_username" {
+#  description = "database user name"
+#  type = string
+#}
