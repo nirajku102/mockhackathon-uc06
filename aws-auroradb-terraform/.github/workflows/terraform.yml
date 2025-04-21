@@ -1,34 +1,97 @@
-name: Terraform
-
 on:
   push:
     branches:
       - main
-  # pull_request:
-  #   branches:
-  #     - main
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
 
 jobs:
-  terraform:
+  terraform-plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: actions/checkout@v4
         with:
-          terraform_version: 1.0.0
+          fetch-depth: 0
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Prevent CI Loop
+        run: |
+          if [[ "$(git log -1 --pretty=%an)" == "GitHub Actions" ]]; then
+            echo "Commit is from GitHub Actions. Exiting to prevent loop."
+            exit 0
+          fi
 
-      - name: Terraform Plan
-        run: terraform plan
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
-        env:
-          TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # - name: Install Checkov
+      #   run: |
+      #     pip install checkov
+
+      # - name: Run Checkov
+      #   run: |
+      #     cd terraform
+      #     checkov -d . --soft-fail
+
+      # - name: Install TFLint
+      #   run: |
+      #     curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+      # - name: Run TFLint
+      #   run: |
+      #     cd terraform
+      #     tflint
+
+      # - name: Configure AWS credentials using OIDC
+      #   uses: aws-actions/configure-aws-credentials@v3
+      #   with:
+      #     role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      # - name: Login to Amazon ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v1
+
+      # - name: Generate Unique Image Tag
+      #   run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      # - name: Build and Push Docker Image for user_lambda
+      #   run: |
+      #     cd lambda/user_lambda
+      #     docker build -t app:$IMAGE_TAG .
+      #     docker tag app:$IMAGE_TAG $ECR_REPO_APP:$IMAGE_TAG
+      #     docker push $ECR_REPO_APP:$IMAGE_TAG
+
+      - name: Initialize Terraform
+        run: |
+          cd terraform
+          terraform init
+
+      - name: Generate Terraform Plan
+        run: |
+          cd terraform
+          terraform plan
+
+
+      - name: Run Terraform Apply with dev.tfvars and Image URIs
+        run: |
+          cd terraform
+          terraform init
+          terraform apply
