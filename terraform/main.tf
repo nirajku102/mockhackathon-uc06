@@ -3,7 +3,7 @@ module "secrets_manager" {
   db_password = var.db_password
 }
 
-# module "rds_database" {
-#  source = "./modules/rds"
-#  db_username = var.db_username
-#}
+module "rds_database" {
+  source = "./modules/rds"
+  db_username = var.db_username
+}
