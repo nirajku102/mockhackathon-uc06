@@ -1,5 +1,5 @@
 resource "aws_secretsmanager_secret" "db_password" {
-  name = "test/mysql/password"
+  name = "aurora/mysql/password"
 }
 
 resource "aws_secretsmanager_secret_version" "db_password_version" {
