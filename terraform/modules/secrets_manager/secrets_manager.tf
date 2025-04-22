@@ -1,5 +1,5 @@
 resource "aws_secretsmanager_secret" "db_password" {
-  name = "mockhackathon/mysql/password"
+  name = "auroradatabase/mysql/password"
 }
 
 resource "aws_secretsmanager_secret_version" "db_password_version" {
