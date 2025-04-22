@@ -1,5 +1,5 @@
 module "secrets_manager" {
-  source = "./modules/secrets_manager"
+  source      = "./modules/secrets_manager"
   db_password = var.db_password
 }
 
